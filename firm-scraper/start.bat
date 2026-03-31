@@ -50,7 +50,7 @@ echo Uruchamianie frontendu...
 start "FirmScraper Frontend" cmd /k "cd /d %FRONTEND% && npm run dev"
 
 echo.
-echo Backend  -^> http://localhost:8001
+echo Backend  -^> http://localhost:8000
 echo Frontend -^> http://localhost:5173
 echo.
 pause
