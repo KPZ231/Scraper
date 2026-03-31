@@ -1,0 +1,10 @@
+{
+  "name": "firm-scraper",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Google Maps Lead Generator – React + FastAPI + Playwright",
+  "scripts": {
+    "frontend": "cd frontend && npm run dev",
+    "backend": "cd backend && uvicorn server:app --reload --port 8000"
+  }
+}
