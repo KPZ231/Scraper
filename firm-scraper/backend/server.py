@@ -171,6 +171,7 @@ async def run_scrape_task(job_id: str, req: ScrapeRequest) -> None:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
+@app.head("/")
 async def root():
     return {"status": "ok", "message": "Firm Scraper API is running. Use /api/scrape to start jobs."}
 
