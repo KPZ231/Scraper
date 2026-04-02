@@ -7,19 +7,6 @@ REM ─────────────────────────�
 SET ROOT=%~dp0
 SET BACKEND=%ROOT%backend
 SET FRONTEND=%ROOT%frontend
-SET SCRAPER=%ROOT%..\gmaps_scraper.py
-
-IF NOT EXIST "%SCRAPER%" (
-    echo [BLAD] Nie znaleziono gmaps_scraper.py w katalogu nadrzednym.
-    echo Upewnij sie ze struktura wyglada tak:
-    echo.
-    echo   projekt\
-    echo   +-- gmaps_scraper.py
-    echo   +-- firm-scraper\
-    echo       +-- start.bat
-    pause
-    exit /b 1
-)
 
 REM ── backend venv ──────────────────────────────────────────────────
 IF NOT EXIST "%BACKEND%\.venv" (

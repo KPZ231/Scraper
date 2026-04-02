@@ -519,11 +519,122 @@ function GridBg() {
 // ─────────────────────────────────────────────────────────────────────────────
 //  APP
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  COOKIES UTILS
+// ─────────────────────────────────────────────────────────────────────────────
+const COOKIE_NAME = 'firmscraper_tos_accepted'
+const setCookie = (name, value, days = 365) => {
+  const d = new Date()
+  d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000))
+  document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/`
+}
+const getCookie = (name) => {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? match[2] : null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TERMS GATE
+// ─────────────────────────────────────────────────────────────────────────────
+function TermsGate({ onAccept }) {
+  const [scrolled, setScrolled] = useState(false)
+  const [phrase, setPhrase] = useState('')
+  const scrollRef = useRef()
+  const SECRET = "KPZsProductions"
+
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 10
+    if (isAtBottom) setScrolled(true)
+  }
+
+  const isAccepted = scrolled && phrase === SECRET
+
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:9999, background:'var(--bg)',
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+      backgroundImage:'radial-gradient(circle at 50% 50%, rgba(123,47,255,.05), transparent 70%)'
+    }}>
+      <div style={{
+        maxWidth:600, width:'100%', background:'var(--surface)', border:'1px solid var(--border)',
+        borderRadius:12, padding:'32px', boxShadow:'0 20px 50px rgba(0,0,0,.5)',
+        display:'flex', flexDirection:'column', gap:20, animation:'fadeIn .5s ease'
+      }}>
+        <div style={{ textAlign:'center' }}>
+          <h1 style={{ fontFamily:'var(--font-head)', fontSize:28, fontWeight:900, marginBottom:8 }}>
+            <span style={{ color:'var(--accent)' }}>KPZs</span>Productions
+          </h1>
+          <div style={{ color:'var(--muted)', fontSize:12, textTransform:'uppercase', letterSpacing:'.2em' }}>Security Access Control</div>
+        </div>
+
+        <div style={{ fontSize:13, lineHeight:1.6, color:'var(--text)' }}>
+          <p style={{ marginBottom:12, fontWeight:700, color:'var(--accent)' }}>
+            ⚠ To narzędzie jest przeznaczone wyłącznie dla członków grupy KPZsProductions.
+          </p>
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            style={{
+              height:200, overflowY:'auto', background:'var(--bg)', padding:16,
+              borderRadius:4, border:'1px solid var(--border)', fontSize:12, color:'var(--muted)'
+            }}
+          >
+            <h4 style={{ color:'var(--text)', marginBottom:8 }}>WARUNKI UŻYTKOWANIA (ToS)</h4>
+            <ol style={{ paddingLeft:16 }}>
+              <li style={{ marginBottom:8 }}>Narzędzie służy do zbierania publicznie dostępnych danych z Google Maps.</li>
+              <li style={{ marginBottom:8 }}>Użytkownik zobowiązuje się do przestrzegania <b>Google Maps Platform Terms of Service</b>.</li>
+              <li style={{ marginBottom:8 }}>Wykorzystanie komercyjne przez osoby trzecie lub podmioty spoza KPZsProductions jest surowo zabronione i może naruszać zasady Google.</li>
+              <li style={{ marginBottom:8 }}>KPZsProductions nie bierze odpowiedzialności za ewentualne blokady kont lub inne restrykcje nałożone przez Google w wyniku nadużywania narzędzia.</li>
+              <li style={{ marginBottom:8 }}>Zabrania się odsprzedaży danych pozyskanych za pomocą tego skryptu bez wyraźnej zgody admistracji KPZs.</li>
+              <li style={{ marginBottom:8 }}>Akceptując te warunki, potwierdzasz, że jesteś świadomy ryzyka związanego z automatyzacją przeglądarki.</li>
+            </ol>
+            <p style={{ marginTop:10 }}><i>Przewiń do samego dołu, aby odblokować akceptację.</i></p>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <label style={{ fontSize:11, color:'var(--muted)', textTransform:'uppercase' }}>Weryfikacja tożsamości (Hasło):</label>
+          <input
+            type="password"
+            value={phrase}
+            onChange={e => setPhrase(e.target.value)}
+            placeholder="Wpisz tajną frazę..."
+            style={{ width:'100%', borderColor: phrase === SECRET ? 'var(--success)' : 'var(--border)' }}
+          />
+        </div>
+
+        <button
+          disabled={!isAccepted}
+          onClick={() => onAccept()}
+          style={{
+            padding:'14px', borderRadius:8, border:'none',
+            background: isAccepted ? 'linear-gradient(135deg, var(--accent2), var(--accent))' : 'var(--surface2)',
+            color: isAccepted ? '#000' : 'var(--muted)',
+            fontWeight:800, cursor: isAccepted ? 'pointer' : 'not-allowed',
+            transition:'all .3s ease', boxShadow: isAccepted ? '0 0 20px rgba(0,229,255,.3)' : 'none'
+          }}
+        >
+          {!scrolled ? 'PRZEWIŃ REGULAMIN' : phrase !== SECRET ? 'ZŁA FRAZA' : 'WEJDŹ DO SYSTEMU'}
+        </button>
+
+        {phrase !== '' && phrase !== SECRET && <div style={{ color:'var(--danger)', fontSize:11, textAlign:'center' }}>Niepoprawna fraza członka KPZs.</div>}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  APP
+// ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   const [jobs,     setJobs]     = useState([])
   const [activeId, setActiveId] = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
+  const [accepted, setAccepted] = useState(() => !!getCookie(COOKIE_NAME))
+  
   const pollerRef    = useRef(null)
   const prevStatuses = useRef({})
   const { toasts, add: addToast, remove: removeToast } = useToasts()
@@ -551,9 +662,10 @@ export default function App() {
   }, [addToast])
 
   useEffect(() => {
+    if (!accepted) return
     pollerRef.current = setInterval(pollJobs, 2000)
     return () => clearInterval(pollerRef.current)
-  }, [pollJobs])
+  }, [pollJobs, accepted])
 
   async function handleSubmit(params) {
     setError(null); setLoading(true)
@@ -576,6 +688,13 @@ export default function App() {
       delete prevStatuses.current[job_id]
     } catch (e) { setError(e.message) }
   }
+
+  const handleAccept = () => {
+    setCookie(COOKIE_NAME, 'true')
+    setAccepted(true)
+  }
+
+  if (!accepted) return <><GridBg /><TermsGate onAccept={handleAccept} /></>
 
   return (
     <>

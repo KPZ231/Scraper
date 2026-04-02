@@ -9,21 +9,6 @@ set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 BACKEND="$ROOT/backend"
 FRONTEND="$ROOT/frontend"
-SCRAPER="$ROOT/../gmaps_scraper.py"
-
-# ── check gmaps_scraper.py ───────────────────────────────────────
-if [ ! -f "$SCRAPER" ]; then
-  echo "❌  Nie znaleziono gmaps_scraper.py w katalogu nadrzędnym ($ROOT/..)"
-  echo "    Upewnij się że struktura katalogów wygląda tak:"
-  echo ""
-  echo "    projekt/"
-  echo "    ├── gmaps_scraper.py"
-  echo "    └── firm-scraper/"
-  echo "        ├── start.sh   ← jesteś tutaj"
-  echo "        ├── backend/"
-  echo "        └── frontend/"
-  exit 1
-fi
 
 # ── backend venv ─────────────────────────────────────────────────
 if [ ! -d "$BACKEND/.venv" ]; then
