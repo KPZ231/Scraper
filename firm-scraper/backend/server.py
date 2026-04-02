@@ -7,7 +7,9 @@ Refactored production-ready server using the scraper package.
 import asyncio
 import io
 import logging
+import os
 import uuid
+import uvicorn
 from pathlib import Path
 from typing import Any, Optional, Dict
 
@@ -46,13 +48,15 @@ DATA_DIR.mkdir(exist_ok=True)
 app = FastAPI(
     title="Firm Scraper API",
     description="API for scraping business leads from Google Maps",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -173,7 +177,11 @@ async def run_scrape_task(job_id: str, req: ScrapeRequest) -> None:
 @app.get("/")
 @app.head("/")
 async def root():
-    return {"status": "ok", "message": "Firm Scraper API is running. Use /api/scrape to start jobs."}
+    return {
+        "status": "ok", 
+        "message": "Firm Scraper API is running.", 
+        "info": "Use /api/scrape to start jobs. Docs available at /docs"
+    }
 
 @app.post("/api/scrape", status_code=202)
 async def start_scrape(req: ScrapeRequest, background_tasks: BackgroundTasks):
@@ -251,5 +259,6 @@ async def delete_job(job_id: str):
     return {"deleted": job_id}
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    # Render passes PORT env, fallback to 8000 for local dev
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
