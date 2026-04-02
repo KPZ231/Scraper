@@ -170,6 +170,10 @@ async def run_scrape_task(job_id: str, req: ScrapeRequest) -> None:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "Firm Scraper API is running. Use /api/scrape to start jobs."}
+
 @app.post("/api/scrape", status_code=202)
 async def start_scrape(req: ScrapeRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())[:8]
