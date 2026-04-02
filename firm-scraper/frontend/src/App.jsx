@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const API = import.meta.env.PROD ? 'https://scraper-bdxt.onrender.com' : ''
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? '' : 'https://scraper-bdxt.onrender.com'
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DATA
