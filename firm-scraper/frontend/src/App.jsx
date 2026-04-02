@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-
-const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? '' : 'https://scraper-bdxt.onrender.com'
+import {
+  startScrape,
+  getJob,
+  deleteJob,
+  downloadCsv,
+  wakeUpBackend,
+  getConnectionStatus,
+  ApiError,
+} from './api'
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DATA
@@ -27,25 +34,6 @@ const TEMPLATES = [
   'elektryk Katowice',
   'księgowy Rybnik',
 ]
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  API HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-async function apiPost(path, body) {
-  const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
-async function apiGet(path) {
-  const r = await fetch(API + path)
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
-async function apiDelete(path) {
-  const r = await fetch(API + path, { method: 'DELETE' })
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  XLSX EXPORT  (pure JS – no library needed)
@@ -299,7 +287,7 @@ function JobCard({ job, onDelete, active, onClick }) {
         </div>
         <div style={{ display:'flex', gap:8, flexShrink:0 }} onClick={e => e.stopPropagation()}>
           {job.status === 'done' && <>
-            <a href={`/api/jobs/${job.job_id}/csv`} download style={{ padding:'6px 14px', background:'transparent', border:'1px solid var(--success)', color:'var(--success)', borderRadius:'var(--radius)', fontSize:12, fontFamily:'var(--font-mono)', cursor:'pointer', textDecoration:'none', display:'inline-block' }}>↓ CSV</a>
+            <button onClick={() => downloadCsv(job.job_id).catch(console.error)} style={{ padding:'6px 14px', background:'transparent', border:'1px solid var(--success)', color:'var(--success)', borderRadius:'var(--radius)', fontSize:12, fontFamily:'var(--font-mono)', cursor:'pointer', textDecoration:'none', display:'inline-block' }}>↓ CSV</button>
             <button onClick={() => exportXlsx(job.results, `leads_${job.job_id}.xlsx`)} style={{ padding:'6px 14px', background:'transparent', border:'1px solid var(--accent2)', color:'var(--accent2)', borderRadius:'var(--radius)', fontSize:12, cursor:'pointer' }}>↓ XLSX</button>
           </>}
           <button onClick={() => onDelete(job.job_id)}
@@ -634,17 +622,43 @@ export default function App() {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
   const [accepted, setAccepted] = useState(() => !!getCookie(COOKIE_NAME))
+  const [backendStatus, setBackendStatus] = useState('connecting') // 'connecting' | 'online' | 'offline' | 'waking'
   
   const pollerRef    = useRef(null)
   const prevStatuses = useRef({})
   const { toasts, add: addToast, remove: removeToast } = useToasts()
   const { favs, add: addFav, remove: removeFav }       = useFavourites()
 
+  // ── Wake up Render backend on mount ──────────────────────────────────────
+  useEffect(() => {
+    if (!accepted) return
+    let cancelled = false
+    async function wake() {
+      setBackendStatus('waking')
+      try {
+        await wakeUpBackend()
+        if (!cancelled) {
+          setBackendStatus('online')
+          addToast('Backend połączony.', 'success', 3000)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBackendStatus('offline')
+          const status = getConnectionStatus(err)
+          addToast(status.message, 'error', 6000)
+        }
+      }
+    }
+    wake()
+    return () => { cancelled = true }
+  }, [accepted, addToast])
+
+  // ── Poll running jobs ────────────────────────────────────────────────────
   const pollJobs = useCallback(async () => {
     setJobs(prev => {
       const running = prev.filter(j => j.status === 'pending' || j.status === 'running')
       if (running.length === 0) return prev
-      Promise.all(running.map(j => apiGet(`/api/jobs/${j.job_id}`))).then(updated => {
+      Promise.all(running.map(j => getJob(j.job_id))).then(updated => {
         setJobs(current => current.map(j => {
           const u = updated.find(x => x.job_id === j.job_id)
           if (!u) return j
@@ -667,26 +681,35 @@ export default function App() {
     return () => clearInterval(pollerRef.current)
   }, [pollJobs, accepted])
 
+  // ── Handlers ─────────────────────────────────────────────────────────────
   async function handleSubmit(params) {
     setError(null); setLoading(true)
     try {
-      const { job_id } = await apiPost('/api/scrape', params)
-      const job = await apiGet(`/api/jobs/${job_id}`)
+      const { job_id } = await startScrape(params)
+      const job = await getJob(job_id)
       prevStatuses.current[job_id] = 'pending'
       setJobs(prev => [job, ...prev])
       setActiveId(job_id)
       addToast(`Skanowanie „${params.query}" uruchomione.`, 'info')
-    } catch (e) { setError(e.message) }
-    finally { setLoading(false) }
+    } catch (e) {
+      const status = getConnectionStatus(e)
+      setError(e instanceof ApiError ? e.message : status.message)
+      if (!status.online) setBackendStatus('offline')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleDelete(job_id) {
     try {
-      await apiDelete(`/api/jobs/${job_id}`)
+      await deleteJob(job_id)
       setJobs(prev => prev.filter(j => j.job_id !== job_id))
       if (activeId === job_id) setActiveId(null)
       delete prevStatuses.current[job_id]
-    } catch (e) { setError(e.message) }
+    } catch (e) {
+      const status = getConnectionStatus(e)
+      setError(e instanceof ApiError ? e.message : status.message)
+    }
   }
 
   const handleAccept = () => {
@@ -701,6 +724,27 @@ export default function App() {
       <GridBg />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div style={{ position:'relative', zIndex:1, minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+        {/* ── Backend Status Banner ─────────────────────────────────── */}
+        {backendStatus !== 'online' && (
+          <div style={{
+            padding:'8px 32px', fontSize:12, textAlign:'center', fontWeight:600,
+            background: backendStatus === 'waking' ? 'rgba(255,170,0,.12)' : 'rgba(255,61,113,.12)',
+            color: backendStatus === 'waking' ? 'var(--warn)' : 'var(--danger)',
+            borderBottom: `1px solid ${backendStatus === 'waking' ? 'var(--warn)' : 'var(--danger)'}`,
+            display:'flex', alignItems:'center', justifyContent:'center', gap:10,
+          }}>
+            {backendStatus === 'waking' && <span style={{ display:'inline-block', animation:'spin 1s linear infinite' }}>◌</span>}
+            {backendStatus === 'waking' ? 'Budzenie serwera Render… (może potrwać do 60s)' :
+             backendStatus === 'connecting' ? 'Łączenie z backendem…' :
+             'Backend offline — sprawdź połączenie lub skontaktuj się z adminem'}
+            {backendStatus === 'offline' && (
+              <button onClick={() => { setBackendStatus('waking'); wakeUpBackend().then(() => setBackendStatus('online')).catch(() => setBackendStatus('offline')) }}
+                style={{ padding:'3px 12px', fontSize:11, borderRadius:4, border:'1px solid var(--danger)', background:'transparent', color:'var(--danger)', cursor:'pointer', fontWeight:700 }}
+              >↻ Ponów</button>
+            )}
+          </div>
+        )}
+
         <header style={{ borderBottom:'1px solid var(--border)', padding:'0 32px', display:'flex', alignItems:'center', height:58, background:'rgba(10,10,15,.85)', backdropFilter:'blur(12px)', position:'sticky', top:0, zIndex:10 }}>
           <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
             <span style={{ fontFamily:'var(--font-head)', fontWeight:800, fontSize:20, letterSpacing:'-.01em' }}>
@@ -709,7 +753,16 @@ export default function App() {
             <span style={{ fontSize:10, color:'var(--muted)', border:'1px solid var(--border)', borderRadius:3, padding:'1px 6px', letterSpacing:'.08em' }}>v3.0</span>
           </div>
           <div style={{ flex:1 }} />
-          <div style={{ fontSize:12, color:'var(--muted)' }}>Google Maps Lead Generator</div>
+          {/* ── Connection indicator ──────────────────────────── */}
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{
+              width:7, height:7, borderRadius:'50%', display:'inline-block',
+              background: backendStatus === 'online' ? 'var(--success)' : backendStatus === 'waking' ? 'var(--warn)' : 'var(--danger)',
+              boxShadow: `0 0 6px ${backendStatus === 'online' ? 'var(--success)' : backendStatus === 'waking' ? 'var(--warn)' : 'var(--danger)'}`,
+              animation: backendStatus === 'waking' ? 'pulse 1.6s ease infinite' : 'none',
+            }} />
+            <div style={{ fontSize:12, color:'var(--muted)' }}>Google Maps Lead Generator</div>
+          </div>
         </header>
 
         <main style={{ flex:1, padding:'32px', maxWidth:1150, margin:'0 auto', width:'100%' }}>

@@ -14,6 +14,8 @@ job_*.csv
 node_modules/
 dist/
 .vite/
+.env.local
+.env.*.local
 
 # OS
 .DS_Store
