@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const API = ''
+const API = import.meta.env.PROD ? 'https://scraper-bdxt.onrender.com' : ''
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DATA
