@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: firm-scraper-api
+    runtime: python
+    buildCommand: |
+      pip install -r requirements.txt
+      playwright install chromium
+      playwright install-deps chromium
+    startCommand: python server.py
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: ALLOWED_ORIGINS
+        value: "*"
+        # In production, replace * with your frontend URL:
+        # value: "https://your-app.vercel.app,https://yourdomain.com"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
